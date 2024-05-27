@@ -1,0 +1,105 @@
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//  full.fx ver1.4_1
+//  作成: 舞力介入P
+//  情報日時: 2012/05/01
+//
+//  MMEスレの舞力介入P氏の情報をもとにbeat32lopが改変
+//
+////////////////////////////////////////////////////////////////////////////////////////////////
+// パラメータ宣言
+
+// 座法変換行列
+float4x4 WorldViewProjMatrix      : WORLDVIEWPROJECTION;
+float4x4 WorldMatrix              : WORLD;
+float4x4 ViewMatrix               : VIEW;
+float4x4 LightWorldViewProjMatrix : WORLDVIEWPROJECTION < string Object = "Light"; >;
+
+float3   LightDirection    : DIRECTION < string Object = "Light"; >;
+float3   CameraPosition    : POSITION  < string Object = "Camera"; >;
+
+// マテリアル色
+float4   MaterialDiffuse   : DIFFUSE  < string Object = "Geometry"; >;
+float3   MaterialAmbient   : AMBIENT  < string Object = "Geometry"; >;
+float3   MaterialEmmisive  : EMISSIVE < string Object = "Geometry"; >;
+float3   MaterialSpecular  : SPECULAR < string Object = "Geometry"; >;
+float    SpecularPower     : SPECULARPOWER < string Object = "Geometry"; >;
+float3   MaterialToon      : TOONCOLOR;
+float4   EdgeColor         : EDGECOLOR;
+float4 EgColor;
+
+// ライト色
+float3   LightDiffuse      : DIFFUSE   < string Object = "Light"; >;
+float3   LightAmbient      : AMBIENT   < string Object = "Light"; >;
+float3   LightSpecular     : SPECULAR  < string Object = "Light"; >;
+static float4 DiffuseColor  = MaterialDiffuse  * float4(LightDiffuse, 1.0f);
+static float3 AmbientColor  = saturate(MaterialAmbient  * LightAmbient + MaterialEmmisive);
+static float3 SpecularColor = MaterialSpecular * LightSpecular;
+
+bool     parthf;   // パースペクティブフラグ
+bool     transp;   // 半透明フラグ
+bool	 spadd;    // スフィアマップ加算合成フラグ
+#define SKII1    1500
+#define SKII2    8000
+#define Toon     3
+
+// オブジェクトのテクスチャ
+texture ObjectTexture: MATERIALTEXTURE;
+sampler ObjTexSampler = sampler_state {
+    texture = <ObjectTexture>;
+    MINFILTER = LINEAR;
+    MAGFILTER = LINEAR;
+};
+
+// スフィアマップのテクスチャ
+texture ObjectSphereMap: MATERIALSPHEREMAP;
+sampler ObjSphareSampler = sampler_state {
+    texture = <ObjectSphereMap>;
+    MINFILTER = LINEAR;
+    MAGFILTER = LINEAR;
+};
+
+// MMD本来のsamplerを上書きしないための記述です。削除不可。
+sampler MMDSamp0 : register(s0);
+sampler MMDSamp1 : register(s1);
+sampler MMDSamp2 : register(s2);
+
+struct VS_OUTPUT {
+    float4 Pos        : POSITION;    // 射影変換座標
+    float3 WorldPos        : TEXCOORD1;   // テクスチャ
+};
+
+// 頂点シェーダ
+VS_OUTPUT Basic_VS(float4 Pos : POSITION, float3 Normal : NORMAL, float2 Tex : TEXCOORD0)
+{
+    VS_OUTPUT Out = (VS_OUTPUT)0;
+    
+    // カメラ視点のワールドビュー射影変換
+    Out.Pos = mul( Pos, WorldViewProjMatrix );
+    Out.WorldPos = mul( Pos, WorldMatrix).xyz;
+    
+    return Out;
+}
+
+// ピクセルシェーダ
+float4 Basic_PS(VS_OUTPUT IN) : COLOR0
+{
+    return float4(IN.WorldPos, 1);
+}
+
+// オブジェクト描画用テクニック（アクセサリ用）
+// 不要なものは削除可
+technique MainTec0 < string MMDPass = "object_ss"; > 
+{
+    pass DrawObject {
+        ZENABLE = TRUE;
+        VertexShader = compile vs_3_0 Basic_VS();
+        PixelShader  = compile ps_3_0 Basic_PS();
+    }
+}
+
+// Do not draw edge
+technique < string MMDPass = "edge"; > {}
+
+// Do not draw shadow
+technique < string MMDPass = "shadow"; > {}
